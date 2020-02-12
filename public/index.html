@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu primeiro Joguinho Multiplayer</title>
+
+    <style>
+        body {
+                margin: 40px 0 0 0;
+                padding: 0;
+                background-color: #EEE;
+                text-align: center;
+            }
+
+            #screen {
+                border: 2px solid #eee;
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+                image-rendering: -moz-crisp-edges;
+                width: 500px;
+                height: 500px;
+                -webkit-box-shadow: 0px 4px 17px 0px rgba(0,0,0,0.19);
+                -moz-box-shadow: 0px 4px 17px 0px rgba(0,0,0,0.19);
+                box-shadow: 0px 4px 17px 0px rgba(0,0,0,0.19);
+                margin-bottom: 18px;
+                margin-left: 18px;
+                margin-right: 18px;
+                display: inline-block;
+                vertical-align: top;
+            }
+
+            #score-table {
+                font-size: 15px;
+                vertical-align: top;
+                display: inline-block;
+                font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+            }
+
+            #score-table tr.header td {
+                border-bottom: 2px solid #CCC;
+                padding-bottom: 10px;
+            }
+
+            #score-table tr.footer td {
+                border-top: 2px solid #CCC;
+                font-size: 13px;
+            }
+
+            #score-table td {
+                padding: 5px 0 5px 0;
+            }
+
+            #score-table .socket-id {
+                font-weight: normal;
+                color: #222;
+                width: 150px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: inline-block
+            }
+
+            #score-table .score-value {
+                font-weight: bold;
+                color: #000;
+                text-align: right;
+            }
+
+            #score-table .current-player .socket-id,
+            #score-table .current-player .score-value {
+                color: #bdaa27;
+            }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+    <canvas id="screen" width="10" height="10"></canvas>
+    <table id="score-table"></table>
+
+    <script type="module">
+        import createGame from "./game.js";
+        import createKeyboardListener from "./keyboardListener.js";
+        import renderScreen, { setupScreen } from "./renderScreen.js";
+
+        const game = createGame()
+        const keyboardListener = createKeyboardListener(document);
+
+        const socket = io()
+
+        socket.on("connect", () => {
+            const playerId = socket.id
+            //console.log(`Player connected on Client with id: ${playerId}`)
+
+            const screen = document.getElementById("screen");
+            const scoreTable = document.getElementById('score-table')
+
+            setupScreen(screen, game)
+            renderScreen(screen, scoreTable, game, requestAnimationFrame, playerId)
+        })
+
+        socket.on('disconnect', () => {
+            //console.log('remove all')
+            keyboardListener.unsubscribeAll();
+        })
+
+
+        socket.on("setup", (state) => {
+            const playerId = socket.id
+            game.setState(state);
+
+            keyboardListener.registerPlayerId(playerId)
+            keyboardListener.subscribe(game.movePlayer)
+            keyboardListener.subscribe((command) => {
+                socket.emit("move-player", command)
+            })
+        })
+
+        socket.on("add-player", (command) => {
+            //console.log(` Receiving ${command.type} -> ${command.playerId}`)
+            game.addPlayer(command);
+        })
+
+        socket.on("remove-player", (command) => {
+            //console.log(` Receiving ${command.type} -> ${command.playerId}`)
+            game.removePlayer(command);
+        })
+
+        socket.on("move-player", (command) => {
+            //console.log(`Receiving ${command.type} -> ${command.playerId}`)
+
+            const playerId = socket.id
+
+            if(playerId !== command.playerId){
+                game.movePlayer(command);
+            }
+            
+        })
+
+        socket.on("add-fruit", (command) => {
+            //console.log(` Receiving ${command.type} -> ${command.fruitId}`)
+            game.addFruit(command);
+        })
+
+        socket.on("remove-fruit", (command) => {
+            //console.log(` Receiving ${command.type} -> ${command.playerId}`)
+            game.removeFruit(command);
+        })
+        
+    </script>
+</body>
+
+</html>
